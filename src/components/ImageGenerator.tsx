@@ -1,10 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { GoogleGenAI } from "@google/genai";
 import { Loader2, Download, ArrowRight, Zap, Maximize2, X, Ratio, Palette, Trash2, Wand2, Upload, Terminal } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { saveImage, getAllImages, clearAllImages, deleteImage } from '../lib/db';
-
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
 interface GeneratedImage {
   url: string;
@@ -113,13 +110,19 @@ export default function ImageGenerator() {
     if (!prompt.trim()) return;
     setIsEnhancing(true);
     try {
-      const response = await ai.models.generateContent({
-        model: 'gemini-3-flash-preview',
-        contents: { parts: [{ text: `Rewrite this image prompt to be more detailed, artistic, and descriptive for an AI image generator. Keep it under 40 words. Prompt: "${prompt}"` }] },
+      const response = await fetch('/api/enhance', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ prompt }),
       });
-      const enhancedText = response.candidates?.[0]?.content?.parts?.[0]?.text;
-      if (enhancedText) {
-        setPrompt(enhancedText.trim());
+
+      if (!response.ok) {
+        throw new Error("Failed to enhance prompt");
+      }
+
+      const data = await response.json();
+      if (data.enhancedText) {
+        setPrompt(data.enhancedText.trim());
       }
     } catch (e) {
       console.error("Failed to enhance prompt", e);
@@ -138,50 +141,23 @@ export default function ImageGenerator() {
       const styleModifier = STYLES.find(s => s.id === selectedStyle)?.promptModifier || '';
       const finalPrompt = styleModifier ? `${prompt}, ${styleModifier}` : prompt;
 
-      let response;
+      const response = await fetch('/api/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          finalPrompt,
+          uploadedImage,
+          aspectRatio,
+        }),
+      });
 
-      // Image-to-Image or Text-to-Image
-      if (uploadedImage) {
-        // Extract base64 data (remove "data:image/png;base64," prefix)
-        const base64Data = uploadedImage.split(',')[1];
-        const mimeType = uploadedImage.split(';')[0].split(':')[1];
-
-        response = await ai.models.generateContent({
-          model: 'gemini-2.5-flash-image',
-          contents: {
-            parts: [
-              { text: finalPrompt || "Describe this image" },
-              {
-                inlineData: {
-                  mimeType: mimeType,
-                  data: base64Data
-                }
-              }
-            ],
-          },
-        });
-      } else {
-        response = await ai.models.generateContent({
-          model: 'gemini-2.5-flash-image',
-          contents: { parts: [{ text: finalPrompt }] },
-          config: {
-            imageConfig: {
-              aspectRatio: aspectRatio,
-            }
-          }
-        });
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Generation failed by API");
       }
 
-      let imageUrl = '';
-      const candidates = response.candidates;
-      if (candidates && candidates[0]?.content?.parts) {
-        for (const part of candidates[0].content.parts) {
-          if (part.inlineData?.data) {
-            imageUrl = `data:${part.inlineData.mimeType || 'image/png'};base64,${part.inlineData.data}`;
-            break;
-          }
-        }
-      }
+      const data = await response.json();
+      const imageUrl = data.imageUrl;
 
       if (imageUrl) {
         const newImage: GeneratedImage = {
