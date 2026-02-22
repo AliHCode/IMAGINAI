@@ -1,15 +1,18 @@
 import { GoogleGenAI } from "@google/genai";
 
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
-
 export default async function handler(req: any, res: any) {
     if (req.method !== 'POST') {
         return res.status(405).json({ message: 'Method not allowed' });
     }
 
-    const { finalPrompt, uploadedImage, aspectRatio } = req.body;
-
     try {
+        const apiKey = process.env.GEMINI_API_KEY;
+        if (!apiKey) {
+            return res.status(500).json({ error: "Gemini API key is not configured on the server." });
+        }
+        const ai = new GoogleGenAI({ apiKey });
+
+        const { finalPrompt, uploadedImage, aspectRatio } = req.body;
         let response;
         if (uploadedImage) {
             const base64Data = uploadedImage.split(',')[1];
