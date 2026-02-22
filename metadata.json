@@ -1,0 +1,5 @@
+{
+  "name": "AI Image Generator",
+  "description": "A web application that leverages generative AI models to create unique artwork from text prompts.",
+  "requestFramePermissions": []
+}
