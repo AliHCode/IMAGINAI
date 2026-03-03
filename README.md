@@ -1,6 +1,6 @@
 <div align="center">
 
-# IMAGINAI: Create Reality 🚀
+# IMAGINAI: Create Reality 
 
 **A modern, dual-client AI Image Generation Platform**
 
